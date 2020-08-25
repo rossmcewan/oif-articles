@@ -1,0 +1,32 @@
+{
+  "name": "oif-articles",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rossmcewan/oif-articles.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rossmcewan/oif-articles/issues"
+  },
+  "homepage": "https://github.com/rossmcewan/oif-articles#readme",
+  "dependencies": {
+    "aws-sdk": "^2.738.0",
+    "axios": "^0.20.0",
+    "jsonwebtoken": "^8.5.1",
+    "jwk-to-pem": "^2.0.4",
+    "middy": "^0.36.0",
+    "mongoose": "^5.10.0",
+    "mongoose-unique-validator": "^2.0.3"
+  },
+  "devDependencies": {
+    "serverless-iam-roles-per-function": "^2.0.2",
+    "serverless-pseudo-parameters": "^2.5.0"
+  }
+}

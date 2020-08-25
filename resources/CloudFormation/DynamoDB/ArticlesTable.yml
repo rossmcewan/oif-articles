@@ -1,0 +1,28 @@
+Table:
+  Type: AWS::DynamoDB::Table
+  Properties:
+    TableName: Articles-${self:provider.stage}
+    AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      - AttributeName: entryType
+        AttributeType: S
+      - AttributeName: task
+        AttributeType: S
+      - AttributeName: task_timestamp
+        AttributeType: S
+    BillingMode: PAY_PER_REQUEST
+    KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+      - AttributeName: entryType
+        KeyType: RANGE
+    GlobalSecondaryIndexes:
+      - IndexName: idx_tasks
+        KeySchema:
+          - AttributeName: task
+            KeyType: HASH
+          - AttributeName: task_timestamp
+            KeyType: RANGE
+        Projection: 
+          ProjectionType: ALL

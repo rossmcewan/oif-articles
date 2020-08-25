@@ -1,0 +1,183 @@
+service:
+  name: oif-articles
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  stage: ${opt:stage, 'dev'} 
+  region: us-east-1
+  profile: ab3
+  environment:
+    STAGE: ${self:provider.stage}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:*
+      Resource:
+        - arn:aws:dynamodb:${self:provider.region}:#{AWS::AccountId}:table/Articles-${self:provider.stage}
+        - arn:aws:dynamodb:${self:provider.region}:#{AWS::AccountId}:table/Articles-${self:provider.stage}/index/idx_tasks
+  tracing:
+    apiGateway: true
+    lambda: true
+  httpApi:
+    payload: '2.0'
+    cors: true
+    authorizers:
+      CognitoJwtAuthorizer:
+        identitySource: $request.header.authorization
+        issuerUrl: ${cf:oif-users-${self:provider.stage}.OifUserPoolProviderUrl}
+        audience:
+        - ${cf:oif-users-${self:provider.stage}.CognitoUserPoolClientId}
+
+plugins:
+  - serverless-iam-roles-per-function
+  - serverless-pseudo-parameters
+
+functions:
+  startMigration:
+    handler: src/migration/migrate.start
+    dependsOn:
+      - MigrateStateMachine
+    environment:
+      MONGODB_URI: ${ssm:/OIF_USERS/MONGODB_URI}
+      MIGRATE_STATE_MACHINE: ${self:resources.Outputs.MigrateStateMachineArn.Value}
+      MIGRATE_PAGE_SIZE: 10
+  articleMigrated:
+    handler: src/migration/migrate.articleMigrated
+  getLastImport:
+    handler: src/migration/migrate.getLastImport
+  getNextPageSinceLastImport:
+    environment:
+      MONGODB_URI: ${ssm:/OIF_USERS/MONGODB_URI}
+    handler: src/migration/migrate.getNextPageSinceLastImport
+  migrateArticle:
+    handler: src/migration/migrate.migrateArticle
+  migrateTags:
+    handler: src/migration/migrate.migrateTags
+  migrateComments:
+    handler: src/migration/migrate.migrateComments
+  migrateAuthors:
+    handler: src/migration/migrate.migrateAuthors
+  # GET /api/articles (auth.optional)
+  http_getArticles:
+    handler: src/events/http.getArticles
+    events:
+      - httpApi:
+          path: /api/articles
+          method: GET
+  
+  # GET /api/articles/feed (auth.required)
+  http_getArticleFeed: 
+    handler: src/events/http.getArticleFeed
+    events:
+      - httpApi:
+          path: /api/articles/feed
+          method: GET
+          authorizer:
+            name: CognitoJwtAuthorizer
+
+  # POST /api/articles (auth.required)
+  http_createArticle:
+    handler: src/events/http.createArticle
+    events:
+      - httpApi:
+          path: /api/articles
+          method: POST
+          authorizer:
+            name: CognitoJwtAuthorizer
+
+  # GET /api/articles/{article} (auth.optional)
+  http_getArticle:
+    handler: src/events/http.getArticle
+    events:
+      - httpApi:
+          path: /api/articles/{article}
+          method: GET
+
+  # PUT /api/articles/{article} (auth.required)
+  http_updateArticle:
+    handler: src/events/http.updateArticle
+    events:
+      - httpApi:
+          path: /api/articles/{article}
+          method: PUT
+          authorizer:
+            name: CognitoJwtAuthorizer
+
+  # DELETE /api/articles/{article} (auth.required)
+  http_deleteArticle:
+    handler: src/events/http.deleteArticle
+    events:
+      - httpApi:
+          path: /api/articles/{article}
+          method: DELETE
+          authorizer:
+            name: CognitoJwtAuthorizer
+
+  # POST /api/articles/{article}/favorite (auth.required)
+  http_favoriteArticle:
+    handler: src/events/http.favoriteArticle
+    events:
+      - httpApi:
+          path: /api/articles/{article}/favorite
+          method: POST
+          authorizer:
+            name: CognitoJwtAuthorizer
+
+  # DELETE /api/articles/{article}/favorite (auth.required)
+  http_unfavoriteArticle:
+    handler: src/events/http.unfavoriteArticle
+    events:
+      - httpApi:
+          path: /api/articles/{article}/favorite
+          method: DELETE
+          authorizer:
+            name: CognitoJwtAuthorizer
+
+  # GET /api/articles/{article}/comments (auth.optional)
+  http_getComments:
+    handler: src/events/http.getComments
+    events:
+      - httpApi:
+          path: /api/articles/{article}/comments
+          method: GET
+
+  # POST /api/articles/{article}/comments (auth.required)
+  http_createComment:
+    handler: src/events/http.createComment
+    events:
+      - httpApi:
+          path: /api/articles/{article}/comments
+          method: POST
+          authorizer:
+            name: CognitoJwtAuthorizer
+
+  # DELETE /api/articles/{article}/comments (auth.required)
+  http_deleteComment:
+    handler: src/events/http.deleteComment
+    events:
+      - httpApi:
+          path: /api/articles/{article}/comments
+          method: DELETE
+          authorizer:
+            name: CognitoJwtAuthorizer
+  
+resources:
+  Resources:
+    StepFunctionsExecutionRole: ${file(./resources/CloudFormation/IAM/StepFunctionsExecutionRole.yml):Role}
+    MigrateStateMachine: ${file(./resources/CloudFormation/StepFunctions/MigrateStateMachine.yml):StateMachine}
+    ArticlesTable: ${file(./resources/CloudFormation/DynamoDB/ArticlesTable.yml):Table}
+  Outputs:
+    StepFunctionsExecutionRoleArn:
+      Value: 
+        Fn::GetAtt: 
+          - StepFunctionsExecutionRole
+          - Arn
+    MigrateStateMachineArn:
+      Value:
+        Ref: MigrateStateMachine
+    ArticlesTableArn:
+      Value:
+        Fn::GetAtt:
+          - ArticlesTable
+          - Arn

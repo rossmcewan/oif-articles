@@ -1,0 +1,99 @@
+StateMachine:
+  Type: AWS::StepFunctions::StateMachine
+  DependsOn: StepFunctionsExecutionRole
+  Properties:
+    DefinitionString: |-
+      {
+        "Comment": "Migrate articles from MongoDb to DynamoDB",
+        "StartAt": "Get Last Import",
+        "States": {
+          "Get Last Import": {
+            "Type":"Task",
+            "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-getLastImport",
+            "ResultPath":"$.lastImport",
+            "Next":"Get Next Page Since Last Import"
+          },
+          "Get Next Page Since Last Import":{
+            "Type":"Task",
+            "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-getNextPageSinceLastImport",
+            "ResultPath":"$.articles",
+            "Next":"Migrate Articles",
+            "Catch":[
+              {
+                "ErrorEquals":["NoMoreArticles"],
+                "ResultPath":"$.noMoreArticles",
+                "Next":"Done"
+              }
+            ]
+          },
+          "Done":{
+            "Type":"Succeed"
+          },
+          "Migrate Articles":{
+            "Type":"Map",
+            "ItemsPath":"$.articles",
+            "ResultPath":"$.articles",
+            "MaxConcurrency":2,
+            "Next":"Get Last Import",
+            "Iterator":{
+              "StartAt":"Migrate Article",
+              "States":{
+                "Migrate Article":{
+                  "Type":"Parallel",
+                  "Next":"Article Migrated",
+                  "ResultPath":"$.parallelResults",
+                  "Branches":[
+                    {
+                      "StartAt":"Article",
+                      "States":{
+                        "Article":{
+                          "Type":"Task",
+                          "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-migrateArticle",
+                          "End":true
+                        }
+                      }
+                    },
+                    {
+                      "StartAt":"Comments",
+                      "States":{
+                        "Comments":{
+                          "Type":"Task",
+                          "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-migrateComments",
+                          "End":true
+                        }
+                      }
+                    },
+                    {
+                      "StartAt":"Authors",
+                      "States":{
+                        "Authors":{
+                          "Type":"Task",
+                          "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-migrateAuthors",
+                          "End":true
+                        }
+                      }
+                    },
+                    {
+                      "StartAt":"Tags",
+                      "States":{
+                        "Tags":{
+                          "Type":"Task",
+                          "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-migrateTags",
+                          "End":true
+                        }
+                      }
+                    }
+                  ]
+                },
+                "Article Migrated":{
+                  "Type":"Task",
+                  "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-articleMigrated",
+                  "ResultPath":"$.articleMigrated",
+                  "End":true
+                }
+              }
+            }
+          }
+        }
+      }
+    RoleArn: ${self:resources.Outputs.StepFunctionsExecutionRoleArn.Value}
