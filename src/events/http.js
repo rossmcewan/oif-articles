@@ -1,3 +1,5 @@
+const AWS = require('aws-sdk');
+const docClient = new AWS.DynamoDB.DocumentClient();
 const middy = require("middy");
 const {
   cors,
@@ -7,7 +9,37 @@ const {
 } = require("middy/middlewares");
 
 //auth.optional
-const _getArticles = async (event) => {};
+const _getArticles = async (event) => {
+  const articles = await docClient.query({
+    TableName: `Articles-${process.env.STAGE}`,
+    IndexName: 'idx_entry_types',
+    ScanIndexForward: false,
+    KeyConditionExpression: '#entryType = :article',
+    ExpressionAttributeNames: {
+      '#entryType':'entryType'
+    },
+    ExpressionAttributeValues: {
+      ':article':'ARTICLE'
+    }
+  }).promise();
+  return {
+    articles: articles.Items.map(article=>{
+      return {
+        slug: article.slug,
+        title: article.title,
+        description: article.description,
+        body: article.body,
+        createdAt: article.createdAt,
+        updatedAt: article.updatedAt,
+        tagList: [],
+        favorited: false,
+        favoritesCount: article.favoritesCount,
+        author: article.author //need to get author
+      }
+    }),
+    artciclesCount: articles.Count
+  }
+};
 
 const _getArticleFeed = async (event) => {};
 

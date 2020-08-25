@@ -106,6 +106,7 @@ module.exports.migrateArticle = async (article) => {
     updatedAt: article.updatedAt,
     favoritesCount: article.favoritesCount,
     author: article.author.email,
+    slug: article.slug
   };
   return docClient
     .put({

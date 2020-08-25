@@ -16,6 +16,7 @@ provider:
       Resource:
         - arn:aws:dynamodb:${self:provider.region}:#{AWS::AccountId}:table/Articles-${self:provider.stage}
         - arn:aws:dynamodb:${self:provider.region}:#{AWS::AccountId}:table/Articles-${self:provider.stage}/index/idx_tasks
+        - arn:aws:dynamodb:${self:provider.region}:#{AWS::AccountId}:table/Articles-${self:provider.stage}/index/idx_entry_types
   tracing:
     apiGateway: true
     lambda: true

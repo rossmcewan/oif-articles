@@ -11,6 +11,8 @@ Table:
         AttributeType: S
       - AttributeName: task_timestamp
         AttributeType: S
+      - AttributeName: createdAt
+        AttributeType: S
     BillingMode: PAY_PER_REQUEST
     KeySchema:
       - AttributeName: id
@@ -18,6 +20,14 @@ Table:
       - AttributeName: entryType
         KeyType: RANGE
     GlobalSecondaryIndexes:
+      - IndexName: idx_entry_types
+        KeySchema:
+          - AttributeName: entryType
+            KeyType: HASH
+          - AttributeName: createdAt
+            KeyType: RANGE
+        Projection: 
+          ProjectionType: ALL
       - IndexName: idx_tasks
         KeySchema:
           - AttributeName: task
