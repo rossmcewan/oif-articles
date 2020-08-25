@@ -5,26 +5,75 @@ StateMachine:
     DefinitionString: |-
       {
         "Comment": "Migrate articles from MongoDb to DynamoDB",
-        "StartAt": "Get Last Import",
+        "StartAt": "Get Last Imported Article",
         "States": {
-          "Get Last Import": {
+          "Get Last Imported Article": {
             "Type":"Task",
-            "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-getLastImport",
+            "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-getLastImportedArticle",
             "ResultPath":"$.lastImport",
-            "Next":"Get Next Page Since Last Import"
+            "Next":"Get Articles Since Last Import"
           },
-          "Get Next Page Since Last Import":{
+          "Get Articles Since Last Import":{
             "Type":"Task",
-            "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-getNextPageSinceLastImport",
+            "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-getArticlesSinceLastImport",
             "ResultPath":"$.articles",
             "Next":"Migrate Articles",
             "Catch":[
               {
                 "ErrorEquals":["NoMoreArticles"],
                 "ResultPath":"$.noMoreArticles",
+                "Next":"Get Last Imported User"
+              }
+            ]
+          },
+          "Get Last Imported User":{
+            "Type":"Task",
+            "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-getLastImportedUser",
+            "ResultPath":"$.lastImport",
+            "Next":"Get Users Since Last Import"
+          },
+          "Get Users Since Last Import":{
+            "Type":"Task",
+            "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-getUsersSinceLastImport",
+            "ResultPath":"$.users",
+            "Next":"Migrate User",
+            "Catch":[
+              {
+                "ErrorEquals":["NoMoreUsers"],
+                "ResultPath":"$.noMoreUsers",
                 "Next":"Done"
               }
             ]
+          },
+          "Migrate User":{
+            "Type":"Map",
+            "ItemsPath":"$.users",
+            "ResultPath":"$.users",
+            "MaxConcurrency":2,
+            "Next":"Get Last Imported User",
+            "Iterator":{
+              "StartAt":"Migrate Favorites",
+              "States":{
+                "Migrate Favorites":{
+                  "Type":"Task",
+                  "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-migrateFavorites",
+                  "ResultPath":"$.migratedFavorites",
+                  "Next":"Migrate Following"
+                },
+                "Migrate Following":{
+                  "Type":"Task",
+                  "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-migrateFollowing",
+                  "ResultPath":"$.migratedFavorites",
+                  "Next":"User Migrated"
+                },
+                "User Migrated":{
+                  "Type":"Task",
+                  "Resource":"arn:aws:lambda:${self:provider.region}:#{AWS::AccountId}:function:oif-articles-${self:provider.stage}-userMigrated",
+                  "ResultPath":"$.userMigrated",
+                  "End":true
+                }
+              }
+            }
           },
           "Done":{
             "Type":"Succeed"
@@ -34,7 +83,7 @@ StateMachine:
             "ItemsPath":"$.articles",
             "ResultPath":"$.articles",
             "MaxConcurrency":2,
-            "Next":"Get Last Import",
+            "Next":"Get Last Imported Article",
             "Iterator":{
               "StartAt":"Migrate Article",
               "States":{

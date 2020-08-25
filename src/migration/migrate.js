@@ -33,7 +33,7 @@ module.exports.start = async (event) => {
     .promise();
 };
 
-module.exports.getLastImport = async (event) => {
+module.exports.getLastImportedArticle = async (event) => {
   const lastImport = await docClient
     .query({
       TableName: `Articles-${process.env.STAGE}`,
@@ -44,7 +44,27 @@ module.exports.getLastImport = async (event) => {
         "#task": "task",
       },
       ExpressionAttributeValues: {
-        ":task": "MIGRATION",
+        ":task": "ARTICLE_MIGRATION",
+      },
+      Limit: 1,
+    })
+    .promise();
+  if (lastImport.Items.length) return lastImport.Items[0].id;
+  return null;
+};
+
+module.exports.getLastImportedUser = async (event) => {
+  const lastImport = await docClient
+    .query({
+      TableName: `Articles-${process.env.STAGE}`,
+      IndexName: "idx_tasks",
+      ScanIndexForward: false,
+      KeyConditionExpression: "#task = :task",
+      ExpressionAttributeNames: {
+        "#task": "task",
+      },
+      ExpressionAttributeValues: {
+        ":task": "USER_MIGRATION",
       },
       Limit: 1,
     })
@@ -60,7 +80,7 @@ class NoMoreArticles extends Error {
   }
 }
 
-module.exports.getNextPageSinceLastImport = async (event) => {
+module.exports.getArticlesSinceLastImport = async (event) => {
   await connect();
   const { pageSize, lastImport } = event;
   const Article = conn.model("Article");
@@ -83,16 +103,100 @@ module.exports.getNextPageSinceLastImport = async (event) => {
   return articles;
 };
 
+class NoMoreUsers extends Error {
+  constructor() {
+    super();
+    this.name = "NoMoreUsers";
+  }
+}
+
+module.exports.getUsersSinceLastImport = async (event) => {
+  await connect();
+  const { pageSize, lastImport } = event;
+  const User = conn.model("User");
+  const query = {};
+  if (lastImport) {
+    query._id = { $gt: lastImport };
+  }
+  const users = await User.find(query)
+    .limit(Number(pageSize))
+    .sort({ _id: "asc" })
+    .populate({
+      path: "following",
+    })
+    .exec();
+  if (!users.length) throw new NoMoreUsers();
+  return users;
+};
+
 module.exports.articleMigrated = async (article) => {
-  return docClient.put({
-    TableName: `Articles-${process.env.STAGE}`,
-    Item: {
-      id: article._id,
-      entryType: "MIGRATED",
-      task: "MIGRATION",
-      task_timestamp: new Date().toISOString(),
+  return docClient
+    .put({
+      TableName: `Articles-${process.env.STAGE}`,
+      Item: {
+        id: article._id,
+        entryType: "MIGRATED",
+        task: "ARTICLE_MIGRATION",
+        task_timestamp: new Date().toISOString(),
+      },
+    })
+    .promise();
+};
+
+module.exports.userMigrated = async (user) => {
+  return docClient
+    .put({
+      TableName: `Articles-${process.env.STAGE}`,
+      Item: {
+        id: user._id,
+        entryType: "MIGRATED",
+        task: "USER_MIGRATION",
+        task_timestamp: new Date().toISOString(),
+      },
+    })
+    .promise();
+};
+
+module.exports.migrateFollowing = async (user) => {
+  const putItems = user.following.map((follower) => {
+    return {
+      PutRequest: {
+        Item: {
+          id: user.email,
+          entryType: `FOLLOWING:${follower.email}`,
+        },
+      },
+    };
+  });
+  if (!putItems.length) return;
+  const params = {
+    RequestItems: {
+      [`Articles-${process.env.STAGE}`]: putItems,
     },
-  }).promise();
+  };
+  console.log("params", JSON.stringify(params));
+  return docClient.batchWrite(params).promise();
+};
+
+module.exports.migrateFavorites = async (user) => {
+  const putItems = user.favorites.map((fav) => {
+    return {
+      PutRequest: {
+        Item: {
+          id: fav,
+          entryType: `FAVORITE:${user._id}`,
+        },
+      },
+    };
+  });
+  if (!putItems.length) return;
+  const params = {
+    RequestItems: {
+      [`Articles-${process.env.STAGE}`]: putItems,
+    },
+  };
+  console.log("params", JSON.stringify(params));
+  return docClient.batchWrite(params).promise();
 };
 
 module.exports.migrateArticle = async (article) => {
@@ -106,7 +210,7 @@ module.exports.migrateArticle = async (article) => {
     updatedAt: article.updatedAt,
     favoritesCount: article.favoritesCount,
     author: article.author.email,
-    slug: article.slug
+    slug: article.slug,
   };
   return docClient
     .put({
@@ -164,7 +268,7 @@ module.exports.migrateComments = async (article) => {
 };
 
 const onlyUnique = (value, index, self) => {
-  return self.findIndex(x=>x.id === value.id) === index;
+  return self.findIndex((x) => x.id === value.id) === index;
 };
 
 module.exports.migrateAuthors = async (article) => {

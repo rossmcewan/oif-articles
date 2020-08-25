@@ -45,12 +45,24 @@ functions:
       MIGRATE_PAGE_SIZE: 10
   articleMigrated:
     handler: src/migration/migrate.articleMigrated
-  getLastImport:
-    handler: src/migration/migrate.getLastImport
-  getNextPageSinceLastImport:
+  userMigrated:
+    handler: src/migration/migrate.userMigrated
+  getLastImportedArticle:
+    handler: src/migration/migrate.getLastImportedArticle
+  getLastImportedUser:
+    handler: src/migration/migrate.getLastImportedUser
+  getArticlesSinceLastImport:
     environment:
       MONGODB_URI: ${ssm:/OIF_USERS/MONGODB_URI}
-    handler: src/migration/migrate.getNextPageSinceLastImport
+    handler: src/migration/migrate.getArticlesSinceLastImport
+  getUsersSinceLastImport:
+    environment:
+      MONGODB_URI: ${ssm:/OIF_USERS/MONGODB_URI}
+    handler: src/migration/migrate.getUsersSinceLastImport
+  migrateFollowing:
+    handler: src/migration/migrate.migrateFollowing
+  migrateFavorites:
+    handler: src/migration/migrate.migrateFavorites
   migrateArticle:
     handler: src/migration/migrate.migrateArticle
   migrateTags:
@@ -59,6 +71,22 @@ functions:
     handler: src/migration/migrate.migrateComments
   migrateAuthors:
     handler: src/migration/migrate.migrateAuthors
+  http_follow:
+    handler: src/events/http.follow
+    events:
+      - httpApi:
+          path: /api/profiles/{username}/follow
+          method: POST
+          authorizer:
+            name: CognitoJwtAuthorizer
+  http_unfollow:
+    handler: src/events/http.unfollow
+    events:
+      - httpApi:
+          path: /api/profiles/{username}/follow
+          method: DELETE
+          authorizer:
+            name: CognitoJwtAuthorizer
   # GET /api/articles (auth.optional)
   http_getArticles:
     handler: src/events/http.getArticles
