@@ -375,8 +375,14 @@ const _follow = async (event) => {};
 
 const _unfollow = async (event) => {};
 
-const getTags = async (event)=>{
-  
+const _getTags = async (event)=>{
+  const tags = await docClient.scan({
+    TableName,
+    IndexName: 'idx_tag'
+  }).promise();
+  return {
+    tags: tags.Items.map(x=>x.tag)
+  }
 }
 
 const wrap = (func) => {
@@ -401,4 +407,5 @@ module.exports = {
   deleteComment: wrap(_deleteComment),
   follow: wrap(_follow),
   unfollow: wrap(_unfollow),
+  getTags: wrap(_getTags)
 };
