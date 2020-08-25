@@ -23,7 +23,9 @@
     "jwk-to-pem": "^2.0.4",
     "middy": "^0.36.0",
     "mongoose": "^5.10.0",
-    "mongoose-unique-validator": "^2.0.3"
+    "mongoose-unique-validator": "^2.0.3",
+    "slug": "^3.3.4",
+    "uuid": "^8.3.0"
   },
   "devDependencies": {
     "serverless-iam-roles-per-function": "^2.0.2",

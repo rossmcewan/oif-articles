@@ -6,7 +6,7 @@ provider:
   runtime: nodejs12.x
   stage: ${opt:stage, 'dev'} 
   region: us-east-1
-  profile: ab3
+  profile: ${opt:profile}
   environment:
     STAGE: ${self:provider.stage}
   iamRoleStatements:
@@ -17,6 +17,8 @@ provider:
         - arn:aws:dynamodb:${self:provider.region}:#{AWS::AccountId}:table/Articles-${self:provider.stage}
         - arn:aws:dynamodb:${self:provider.region}:#{AWS::AccountId}:table/Articles-${self:provider.stage}/index/idx_tasks
         - arn:aws:dynamodb:${self:provider.region}:#{AWS::AccountId}:table/Articles-${self:provider.stage}/index/idx_entry_types
+        - arn:aws:dynamodb:${self:provider.region}:#{AWS::AccountId}:table/Articles-${self:provider.stage}/index/idx_slug
+        - arn:aws:dynamodb:${self:provider.region}:#{AWS::AccountId}:table/Articles-${self:provider.stage}/index/idx_tag
   tracing:
     apiGateway: true
     lambda: true

@@ -184,7 +184,7 @@ module.exports.migrateFavorites = async (user) => {
       PutRequest: {
         Item: {
           id: fav,
-          entryType: `FAVORITE:${user._id}`,
+          entryType: `FAVORITE:${user.email}`,
         },
       },
     };
@@ -210,6 +210,7 @@ module.exports.migrateArticle = async (article) => {
     updatedAt: article.updatedAt,
     favoritesCount: article.favoritesCount,
     author: article.author.email,
+    tagList: article.tagList,
     slug: article.slug,
   };
   return docClient

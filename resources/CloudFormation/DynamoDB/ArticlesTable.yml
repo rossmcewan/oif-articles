@@ -13,6 +13,10 @@ Table:
         AttributeType: S
       - AttributeName: createdAt
         AttributeType: S
+      - AttributeName: slug
+        AttributeType: S
+      - AttributeName: tag
+        AttributeType: S
     BillingMode: PAY_PER_REQUEST
     KeySchema:
       - AttributeName: id
@@ -20,6 +24,18 @@ Table:
       - AttributeName: entryType
         KeyType: RANGE
     GlobalSecondaryIndexes:
+      - IndexName: idx_tag
+        KeySchema:
+          - AttributeName: tag
+            KeyType: HASH
+        Projection:
+          ProjectionType: ALL
+      - IndexName: idx_slug
+        KeySchema:
+          - AttributeName: slug
+            KeyType: HASH
+        Projection:
+          ProjectionType: ALL
       - IndexName: idx_entry_types
         KeySchema:
           - AttributeName: entryType
