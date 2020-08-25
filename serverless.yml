@@ -73,6 +73,12 @@ functions:
     handler: src/migration/migrate.migrateComments
   migrateAuthors:
     handler: src/migration/migrate.migrateAuthors
+  http_getTags:
+    handler: src/events/http.getTags
+    events:
+      - httpApi:
+          path: /api/tags
+          method: GET
   http_follow:
     handler: src/events/http.follow
     events:
