@@ -26,6 +26,17 @@ const isFavorited = async (username, articleId) => {
   return false;
 };
 
+const getAuthor = async (author)=>{
+  const result = await docClient.get({
+    TableName,
+    Key: {
+      id: author,
+      entryType: 'AUTHOR'
+    }
+  }).promise();
+  return result.Item;
+}
+
 //auth.optional
 const _getArticles = async (event) => {
   const {
@@ -98,16 +109,18 @@ const _getArticleFeed = async (event) => {
       IndexName: "idx_entry_types",
       KeyConditionExpression: "#entryType = :article",
       FilterExpression: `#author IN (${followingUsers
-        .map((x) => `:${x}`)
+        .map((x,index) => `:${index}`)
         .join(",")})`,
       ExpressionAttributeNames: {
         "#author": "author",
         "#entryType": "entryType",
       },
-      ExpressionAttributeValues: {},
+      ExpressionAttributeValues: {
+        ':article':'ARTICLE'
+      },
     };
-    followingUsers.forEach((fu) => {
-      params.ExpressionAttributeValues[`:${fu}`] = fu;
+    followingUsers.forEach((fu, index) => {
+      params.ExpressionAttributeValues[`:${index}`] = fu;
     });
     console.log("params", params);
     const followeArticles = await docClient.query(params).promise();
@@ -126,7 +139,7 @@ const _getArticleFeed = async (event) => {
               ? await isFavorited(username, article.id)
               : false,
             favoritesCount: article.favoritesCount,
-            author: article.author, //need to get author
+            author: await getAuthor(article.author), 
           };
         })
       ),
@@ -165,18 +178,10 @@ const _createArticle = async (event) => {
 
 //auth.optional
 const _getArticle = async (event) => {
-  const id = event.pathParameters.article;
-  const articleResult = await docClient
-    .get({
-      TableName,
-      Key: {
-        id,
-        entryType: "ARTICLE",
-      },
-    })
-    .promise();
+  const slug = event.pathParameters.article;
+  const article = await getArticleBySlug(slug);
   return {
-    article: articleResult.Item,
+    article
   };
 };
 
@@ -311,6 +316,7 @@ const _favoriteArticle = async (event) => {
     return {
       article: {
         ...articleItem,
+        favorited: true,
         favoritesCount: articleItem.favoritesCount + 1,
       },
     };
@@ -355,6 +361,7 @@ const _unfavoriteArticle = async (event) => {
     return {
       article: {
         ...articleItem,
+        favorited: false,
         favoritesCount: articleItem.favoritesCount - 1,
       },
     };
